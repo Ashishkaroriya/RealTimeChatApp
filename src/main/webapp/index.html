@@ -1,0 +1,213 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChatVerse - Enhanced Realtime Chat</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap">
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Poppins', sans-serif;
+            display: flex;
+            height: 100vh;
+            background: linear-gradient(120deg, #1e1e2f, #3b3b5c);
+            color: #fff;
+        }
+
+        body.light-theme {
+            background: linear-gradient(120deg, #f3f3f3, #cccccc);
+            color: #000;
+        }
+
+        body.light-theme .message {
+            background: rgba(255, 255, 255, 0.7);
+            color: #000;
+        }
+
+        body.light-theme .nickname {
+            color: #00796b;
+        }
+
+        .container {
+            display: flex;
+            width: 100%;
+        }
+
+        .chat-section {
+            flex: 3;
+            display: flex;
+            flex-direction: column;
+            padding: 15px;
+            overflow-y: auto;
+        }
+
+        #chat {
+            flex: 1;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            overflow-y: auto;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+        }
+
+        .message {
+            padding: 8px;
+            margin: 5px 0;
+            border-radius: 5px;
+            background: rgba(0, 0, 0, 0.6);
+            color: #fff;
+            animation: slideIn 0.3s ease;
+        }
+
+        .nickname {
+            font-weight: bold;
+            color: #00e676;
+        }
+
+        .timestamp {
+            color: #888;
+            margin-right: 5px;
+            font-size: 0.8em;
+        }
+
+        .sidebar {
+            flex: 1;
+            background: #111;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            border-left: 2px solid #444;
+        }
+
+        #themeSwitch {
+            padding: 10px;
+            margin-bottom: 10px;
+            border: none;
+            background: #00e676;
+            color: #fff;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+        }
+
+        button:hover, #themeSwitch:hover {
+            transform: scale(1.05);
+            background: #00796b;
+        }
+
+        ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        li {
+            color: #00e676;
+            margin: 5px 0;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(-100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="chat-section">
+        <div id="chat"></div>
+        <form id="form">
+            <input type="text" id="message" placeholder="Type a message or command..." autocomplete="off">
+            <button>Send</button>
+        </form>
+    </div>
+    <div class="sidebar">
+        <button id="themeSwitch">🌗 Switch Theme</button>
+        <h3>Connected Users</h3>
+        <ul id="userList"></ul>
+        <audio id="notif" src="https://www.myinstants.com/media/sounds/discord-notification.mp3" preload="auto"></audio>
+    </div>
+</div>
+<script>
+    const chat = document.getElementById('chat');
+    const form = document.getElementById('form');
+    const input = document.getElementById('message');
+    const userList = document.getElementById('userList');
+    const notif = document.getElementById('notif');
+    const themeSwitch = document.getElementById('themeSwitch');
+    const body = document.body;
+
+    const ws = new WebSocket("ws://" + location.host + "/chat");
+
+    ws.onmessage = e => {
+        const msg = JSON.parse(e.data);
+        const el = document.createElement("div");
+        el.classList.add("message");
+
+        const time = msg.time ? `<span class="timestamp">[${msg.time}]</span>` : '';
+
+        if (msg.type === "message") {
+            el.innerHTML = `${time}<span class="nickname">${msg.sender}:</span> ${msg.message}`;
+        } else if (msg.type === "system") {
+            el.innerHTML = `${time}<em>${msg.message}</em>`;
+            el.style.color = "#ffa726";
+        } else if (msg.type === "typing") {
+            el.innerHTML = `<em>${msg.sender} is typing...</em>`;
+            setTimeout(() => el.remove(), 1500);
+        } else if (msg.type === "users") {
+            userList.innerHTML = "";
+            msg.users.forEach(u => {
+                const li = document.createElement("li");
+                li.textContent = u;
+                userList.appendChild(li);
+            });
+            return;
+        }
+
+        chat.appendChild(el);
+        chat.scrollTop = chat.scrollHeight;
+        if (msg.type === "message") notif.play();
+    };
+
+    form.onsubmit = e => {
+        e.preventDefault();
+        const text = input.value.trim();
+        if (text) {
+            ws.send(text);
+            input.value = "";
+        }
+    };
+
+    let typingTimeout;
+    input.addEventListener("input", () => {
+        if (typingTimeout) clearTimeout(typingTimeout);
+        ws.send("/typing");
+        typingTimeout = setTimeout(() => {}, 1000);
+    });
+
+    themeSwitch.onclick = () => {
+        body.classList.toggle('light-theme');
+    };
+</script>
+</body>
+</html>
